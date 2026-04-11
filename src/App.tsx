@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { categories } from './data';
 import { Category, MonthlyResult } from './types';
+import { supabase } from './lib/supabase';
+import { User } from '@supabase/supabase-js';
 
 const COLORS = {
   primary: '#2D2A70', // Mesquita Blue
@@ -41,20 +43,60 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [monthlyResults, setMonthlyResults] = useState<MonthlyResult[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('mesquita_dashboard_results');
-    if (saved) {
-      setMonthlyResults(JSON.parse(saved));
-    }
-    setIsLoaded(true);
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('mesquita_dashboard_results', JSON.stringify(monthlyResults));
-    }
-  }, [monthlyResults, isLoaded]);
+    const fetchResults = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('monthly_results')
+          .select('*');
+        
+        if (error) throw error;
+
+        if (data) {
+          const mappedData: MonthlyResult[] = data.map(item => ({
+            goalId: item.goal_id,
+            year: item.year,
+            month: item.month,
+            value: item.value
+          }));
+          setMonthlyResults(mappedData);
+        }
+      } catch (error) {
+        console.error('Error fetching results from Supabase:', error);
+        // Fallback to localStorage if Supabase fails
+        const saved = localStorage.getItem('mesquita_dashboard_results');
+        if (saved) {
+          setMonthlyResults(JSON.parse(saved));
+        }
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    fetchResults();
+  }, []);
 
   const getTargetDate = () => {
     const now = new Date();
@@ -69,7 +111,45 @@ export default function App() {
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  const handleAddResult = (goalId: string, value: number) => {
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (error) throw error;
+        alert('Conta criada com sucesso! Verifique seu e-mail se a confirmação estiver ativada ou tente fazer login.');
+        setIsSignUp(false);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (error) throw error;
+        setShowLoginModal(false);
+      }
+      setAuthEmail('');
+      setAuthPassword('');
+    } catch (error: any) {
+      alert('Erro na autenticação: ' + error.message);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setActiveTab('home');
+  };
+
+  const handleAddResult = async (goalId: string, value: number) => {
+    if (!user) {
+      alert('Você precisa estar logado para salvar dados.');
+      return;
+    }
     const newResult: MonthlyResult = {
       goalId,
       year: targetYear,
@@ -77,10 +157,34 @@ export default function App() {
       value
     };
     
+    // Optimistic update
     setMonthlyResults(prev => {
       const filtered = prev.filter(r => r.goalId !== goalId || r.year !== targetYear || r.month !== targetMonth);
       return [...filtered, newResult];
     });
+
+    // Save to localStorage as backup
+    const updatedResults = [...monthlyResults.filter(r => r.goalId !== goalId || r.year !== targetYear || r.month !== targetMonth), newResult];
+    localStorage.setItem('mesquita_dashboard_results', JSON.stringify(updatedResults));
+
+    // Sync with Supabase
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('monthly_results')
+        .upsert({
+          goal_id: goalId,
+          year: targetYear,
+          month: targetMonth,
+          value: value
+        }, { onConflict: 'goal_id,year,month' });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error syncing with Supabase:', error);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const getStatusColor = (goalId: string, targetValue: string | number) => {
@@ -319,11 +423,33 @@ export default function App() {
           <div className="flex items-center gap-3">
             <PlusCircle className="w-8 h-8 text-[#C5A059]" />
             <h2 className="text-2xl font-bold text-[#2D2A70]">Preenchimento de Dados (Mês de Referência / {targetYear})</h2>
+            {isSyncing && (
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                className="w-4 h-4 border-2 border-[#C5A059] border-t-transparent rounded-full"
+              />
+            )}
           </div>
           <button 
-            onClick={() => {
+            onClick={async () => {
               if (confirm('Deseja realmente limpar todos os dados lançados?')) {
                 setMonthlyResults([]);
+                localStorage.removeItem('mesquita_dashboard_results');
+                
+                setIsSyncing(true);
+                try {
+                  const { error } = await supabase
+                    .from('monthly_results')
+                    .delete()
+                    .neq('goal_id', ''); // Delete all rows
+                  
+                  if (error) throw error;
+                } catch (error) {
+                  console.error('Error clearing Supabase data:', error);
+                } finally {
+                  setIsSyncing(false);
+                }
               }
             }}
             className="text-xs text-red-500 hover:underline flex items-center gap-1"
@@ -416,7 +542,7 @@ export default function App() {
           <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
             <LayoutDashboard className="text-[#2D2A70] w-6 h-6" />
           </div>
-          <span className="font-bold text-lg leading-tight">Mesquita<br/><span className="text-[#C5A059] text-[10px] uppercase tracking-wider">Setor de Otimização de Serviços</span></span>
+          <span className="font-bold text-xs uppercase tracking-wider text-[#C5A059]">Setor de Otimização de Serviços</span>
         </div>
 
         <div className="flex-1 space-y-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -443,25 +569,53 @@ export default function App() {
             </button>
           ))}
 
-          <div className="pt-6">
-            <button 
-              onClick={() => setActiveTab('data-entry')}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${activeTab === 'data-entry' ? 'bg-white/10 text-[#C5A059]' : 'hover:bg-white/5 text-gray-300'}`}
-            >
-              <PlusCircle className="w-5 h-5" />
-              <span className="font-medium">Lançar Dados</span>
-            </button>
-          </div>
+          {user && (
+            <div className="pt-6">
+              <button 
+                onClick={() => setActiveTab('data-entry')}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${activeTab === 'data-entry' ? 'bg-white/10 text-[#C5A059]' : 'hover:bg-white/5 text-gray-300'}`}
+              >
+                <PlusCircle className="w-5 h-5" />
+                <span className="font-medium">Lançar Dados</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="pt-6 border-t border-white/10 text-[10px] text-gray-500 text-center">
+        <div className="pt-4 border-t border-white/10 space-y-2">
+          {user ? (
+            <div className="space-y-2">
+              <div className="px-3 py-2 bg-white/5 rounded-lg">
+                <p className="text-[10px] text-gray-400 uppercase">Logado como</p>
+                <p className="text-xs font-medium truncate text-[#C5A059]">{user.email}</p>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 p-2 text-xs text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+              >
+                <Settings className="w-3 h-3" />
+                Sair do Painel
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setShowLoginModal(true)}
+              className="w-full flex items-center justify-center gap-2 p-3 bg-[#C5A059] hover:bg-[#b08e4d] text-[#2D2A70] font-bold rounded-lg transition-all text-sm"
+            >
+              <Users className="w-4 h-4" />
+              Acesso Restrito
+            </button>
+          )}
+        </div>
+
+        <div className="pt-6 text-[10px] text-gray-500 text-center">
           © 2025-2028 Prefeitura de Mesquita<br/>Setor de Otimização de Serviços
         </div>
       </nav>
 
       {/* Mobile Nav */}
       <div className="lg:hidden bg-[#2D2A70] text-white p-4 flex items-center justify-between sticky top-0 z-50 shadow-md">
-        <span className="font-bold">Mesquita Setor de Otimização de Serviços</span>
+        <span className="font-bold">Setor de Otimização de Serviços</span>
         <button 
           onClick={() => setIsMobileMenuOpen(true)}
           className="p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -558,6 +712,76 @@ export default function App() {
           {activeTab === 'data-entry' && renderDataEntry()}
         </AnimatePresence>
       </main>
+
+      {/* Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <div className="fixed inset-0 flex items-center justify-center z-[100] p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLoginModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative z-10"
+            >
+              <div className="bg-[#2D2A70] p-6 text-white flex justify-between items-center">
+                <h3 className="text-xl font-bold">{isSignUp ? 'Criar Nova Conta' : 'Acesso ao Painel'}</h3>
+                <button onClick={() => setShowLoginModal(false)}><X className="w-6 h-6" /></button>
+              </div>
+              <form onSubmit={handleAuth} className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">E-mail</label>
+                  <input 
+                    type="email" 
+                    required
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-[#C5A059] outline-none"
+                    placeholder="seu@email.com"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Senha</label>
+                  <input 
+                    type="password" 
+                    required
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-[#C5A059] outline-none"
+                    placeholder="••••••••"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                  />
+                </div>
+                <button 
+                  disabled={isAuthLoading}
+                  className="w-full py-4 bg-[#2D2A70] text-white font-bold rounded-xl hover:bg-[#1e1c4a] transition-all disabled:opacity-50"
+                >
+                  {isAuthLoading ? 'Processando...' : (isSignUp ? 'Cadastrar' : 'Entrar no Sistema')}
+                </button>
+                
+                <div className="text-center">
+                  <button 
+                    type="button"
+                    onClick={() => setIsSignUp(!isSignUp)}
+                    className="text-sm text-[#2D2A70] hover:underline font-medium"
+                  >
+                    {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem conta? Cadastre-se'}
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-gray-400 text-center">
+                  Acesso exclusivo para administradores do Setor de Otimização de Serviços.
+                </p>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

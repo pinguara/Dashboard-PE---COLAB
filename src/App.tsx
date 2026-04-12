@@ -578,6 +578,15 @@ export default function App() {
                 <PlusCircle className="w-5 h-5" />
                 <span className="font-medium">Lançar Dados</span>
               </button>
+              <a 
+                href="https://meusetor.vercel.app" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 text-gray-300"
+              >
+                <Info className="w-5 h-5" />
+                <span className="font-medium">Setor</span>
+              </a>
             </div>
           )}
         </div>
@@ -693,6 +702,15 @@ export default function App() {
                     <PlusCircle className="w-5 h-5" />
                     <span className="font-medium">Lançar Dados</span>
                   </button>
+                  <a 
+                    href="https://meusetor.vercel.app" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center gap-3 p-4 rounded-xl transition-all hover:bg-white/5 text-gray-300"
+                  >
+                    <Info className="w-5 h-5" />
+                    <span className="font-medium">Setor</span>
+                  </a>
                 </div>
               </div>
 

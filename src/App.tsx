@@ -580,8 +580,6 @@ export default function App() {
               </button>
               <a 
                 href="https://meusetor.vercel.app" 
-                target="_blank" 
-                rel="noopener noreferrer"
                 className="w-full flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 text-gray-300"
               >
                 <Info className="w-5 h-5" />
@@ -704,8 +702,6 @@ export default function App() {
                   </button>
                   <a 
                     href="https://meusetor.vercel.app" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
                     className="w-full flex items-center gap-3 p-4 rounded-xl transition-all hover:bg-white/5 text-gray-300"
                   >
                     <Info className="w-5 h-5" />

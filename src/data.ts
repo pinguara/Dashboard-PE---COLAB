@@ -93,31 +93,150 @@ export const categories: Category[] = [
         indicators: { 2025: 1, 2026: 1, 2027: 1, 2028: 1 }
       },
       {
-        id: 'dem-11.5',
-        meta: 'Redução de demandas com mais de 1 ano (Geral)',
-        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
-        axis: 'Eixo 4 - Metas de Demandas Antigas',
-        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
-      },
-      {
         id: 'dem-12',
         meta: 'Diminuir Tx de demandas há mais de 1 ano na secretaria de Serviços Públicos',
         formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
-        axis: 'Eixo 4.1 - Metas de Demandas Antigas',
+        axis: 'Eixo 4.1 - Metas de Demandas Antigas - Serviços Públicos',
         indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
       },
       {
-        id: 'dem-13',
-        meta: 'Diminuir Tx de demandas há mais de 6 meses (Saúde/Ouvidoria/etc)',
+        id: 'dem-12.1',
+        meta: 'Diminuir Tx de demandas há mais de 1 ano - Dinâmica',
+        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.1 - Metas de Demandas Antigas - Serviços Públicos',
+        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
+      },
+      {
+        id: 'dem-12.2',
+        meta: 'Diminuir Tx de demandas há mais de 1 ano - Chatuba',
+        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.1 - Metas de Demandas Antigas - Serviços Públicos',
+        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
+      },
+      {
+        id: 'dem-12.3',
+        meta: 'Diminuir Tx de demandas há mais de 1 ano - Coreia',
+        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.1 - Metas de Demandas Antigas - Serviços Públicos',
+        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
+      },
+      {
+        id: 'dem-12.4',
+        meta: 'Diminuir Tx de demandas há mais de 1 ano - Urbanismo',
+        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.1 - Metas de Demandas Antigas - Serviços Públicos',
+        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
+      },
+      {
+        id: 'dem-12.5',
+        meta: 'Diminuir Tx de demandas há mais de 1 ano - Trânsito',
+        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.2 - Metas de Demandas Antigas - Segurança Pública, Defesa Civil e Mobilidade Urbana',
+        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
+      },
+      {
+        id: 'dem-12.6',
+        meta: 'Diminuir Tx de demandas há mais de 1 ano - Defesa Civil',
+        formula: '(Número de demandas em aberto com mais de 365 dias/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.2 - Metas de Demandas Antigas - Segurança Pública, Defesa Civil e Mobilidade Urbana',
+        indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
+      },
+      {
+        id: 'dem-13.1',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Ouvidoria da Saúde',
         formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
-        axis: 'Eixo 4.2 - Metas de Demandas Antigas',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
         indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
       },
       {
-        id: 'dem-14',
-        meta: 'Diminuir Tx de demandas há mais de 3 meses (Fazenda/PREV/etc)',
+        id: 'dem-13.2',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Atenção Primária',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-13.3',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Atenção Especializada',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-13.4',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Regulação',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-13.5',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Vigilância Sanitária',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-13.6',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Vigilância Epidemiológica',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-13.7',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Vigilância Ambiental',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-13.8',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - CEO',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
+        id: 'dem-14.1',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - Fazenda',
         formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
-        axis: 'Eixo 4.2 - Metas de Demandas Antigas',
+        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
+        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
+      },
+      {
+        id: 'dem-14.2',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - Mesquita PREV',
+        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
+        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
+      },
+      {
+        id: 'dem-14.3',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - SUBAS',
+        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
+        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
+      },
+      {
+        id: 'dem-14.4',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - SEMCELT',
+        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
+        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
+      },
+      {
+        id: 'dem-14.5',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - SEMED',
+        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
+        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
+      },
+      {
+        id: 'dem-14.6',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - SEMSOP',
+        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
         indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
       }
     ]

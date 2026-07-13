@@ -142,6 +142,13 @@ export const categories: Category[] = [
         indicators: { 2025: '25%', 2026: '21%', 2027: '18%', 2028: '15%' }
       },
       {
+        id: 'dem-14.6',
+        meta: 'Diminuir Tx de demandas há mais de 3 meses - SEMSOP',
+        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.2 - Metas de Demandas Antigas - Segurança Pública, Defesa Civil e Mobilidade Urbana',
+        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
+      },
+      {
         id: 'dem-13.1',
         meta: 'Diminuir Tx de demandas há mais de 6 meses - Ouvidoria da Saúde',
         formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
@@ -228,13 +235,6 @@ export const categories: Category[] = [
       {
         id: 'dem-14.5',
         meta: 'Diminuir Tx de demandas há mais de 3 meses - SEMED',
-        formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
-        axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
-        indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
-      },
-      {
-        id: 'dem-14.6',
-        meta: 'Diminuir Tx de demandas há mais de 3 meses - SEMSOP',
         formula: '(Número de demandas em aberto com mais de 3 meses/ número de demandas em aberto)x100',
         axis: 'Eixo 4 - Metas de Demandas Antigas - Demais secretarias',
         indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }

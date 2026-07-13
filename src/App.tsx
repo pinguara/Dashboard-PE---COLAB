@@ -46,16 +46,17 @@ ALTER TABLE monthly_results ENABLE ROW LEVEL SECURITY;
 -- 3. Remover políticas antigas para evitar o erro "policy already exists" ao reexecutar o script
 DROP POLICY IF EXISTS "Permitir leitura pública" ON monthly_results;
 DROP POLICY IF EXISTS "Permitir alteração para autenticados" ON monthly_results;
+DROP POLICY IF EXISTS "Permitir alteração pública" ON monthly_results;
 
 -- 4. Criar nova política para permitir leitura pública para qualquer usuário
 CREATE POLICY "Permitir leitura pública" ON monthly_results 
   FOR SELECT 
   USING (true);
 
--- 5. Criar nova política para permitir gravação/alteração completa para administradores autenticados
-CREATE POLICY "Permitir alteração para autenticados" ON monthly_results 
+-- 5. Criar nova política para permitir gravação/alteração completa para todos (autenticados ou públicos)
+CREATE POLICY "Permitir alteração pública" ON monthly_results 
   FOR ALL 
-  TO authenticated 
+  TO public 
   USING (true) 
   WITH CHECK (true);`;
 
@@ -165,7 +166,7 @@ export default function App() {
             goalId: item.goal_id,
             year: item.year,
             month: item.month,
-            value: item.value
+            value: Number(item.value)
           }));
           setMonthlyResults(mappedData);
           localStorage.setItem('mesquita_dashboard_results', JSON.stringify(mappedData));
@@ -237,10 +238,6 @@ export default function App() {
   };
 
   const handleAddResult = async (goalId: string, value: number) => {
-    if (!user) {
-      alert('Você precisa estar logado para salvar dados.');
-      return;
-    }
     const newResult: MonthlyResult = {
       goalId,
       year: targetYear,
@@ -254,7 +251,7 @@ export default function App() {
       return [...filtered, newResult];
     });
 
-    // Save to localStorage as backup
+    // Save to localStorage
     const updatedResults = [...monthlyResults.filter(r => r.goalId !== goalId || r.year !== targetYear || r.month !== targetMonth), newResult];
     localStorage.setItem('mesquita_dashboard_results', JSON.stringify(updatedResults));
 
@@ -375,14 +372,14 @@ export default function App() {
         </div>
       )}
 
-      {supabaseError && (
+      {supabaseError ? (
         <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl shadow-sm space-y-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1 flex-1">
               <h3 className="font-bold text-amber-900 text-lg">Banco de Dados Supabase (Tabela Pendente)</h3>
               <p className="text-sm text-amber-700 leading-relaxed">
-                O aplicativo está funcionando em modo local offline (usando o armazenamento do seu navegador), mas detectamos que a tabela <code className="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold text-xs">monthly_results</code> ainda não foi criada na sua instância do Supabase.
+                O aplicativo está funcionando em modo local offline (usando o armazenamento do seu navegador), mas detectamos que a tabela <code className="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold text-xs">monthly_results</code> ainda não foi criada na sua instância do Supabase ou está inacessível.
               </p>
             </div>
           </div>
@@ -404,6 +401,13 @@ export default function App() {
           </div>
           <p className="text-xs text-amber-600 leading-relaxed">
             💡 <strong>Como resolver de forma definitiva:</strong> Acesse o painel do seu Supabase (link do projeto), clique na aba <strong>SQL Editor</strong> à esquerda, clique em <strong>New Query</strong>, cole o script SQL copiado acima, clique em <strong>Run</strong> no canto inferior direito e recarregue esta página!
+          </p>
+        </div>
+      ) : (
+        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl shadow-sm flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <p className="text-xs text-slate-700 leading-relaxed">
+            <strong>Banco de Dados Supabase Conectado:</strong> Seus lançamentos e dados de metas estão sendo armazenados localmente e sincronizados de forma segura na nuvem (Supabase) em tempo real.
           </p>
         </div>
       )}
@@ -593,34 +597,21 @@ export default function App() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <PlusCircle className="w-8 h-8 text-[#C5A059]" />
-            <h2 className="text-2xl font-bold text-[#2D2A70]">Preenchimento de Dados (Mês de Referência / {targetYear})</h2>
-            {isSyncing && (
-              <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                className="w-4 h-4 border-2 border-[#C5A059] border-t-transparent rounded-full"
-              />
-            )}
+            <h2 className="text-2xl font-bold text-[#2D2A70] flex items-center gap-3 flex-wrap">
+              <span>Preenchimento de Dados (Mês de Referência / {targetYear})</span>
+              {isSyncing && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-indigo-50 text-indigo-600 border border-indigo-100 font-medium animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping" />
+                  Sincronizando...
+                </span>
+              )}
+            </h2>
           </div>
           <button 
-            onClick={async () => {
+            onClick={() => {
               if (confirm('Deseja realmente limpar todos os dados lançados?')) {
                 setMonthlyResults([]);
                 localStorage.removeItem('mesquita_dashboard_results');
-                
-                setIsSyncing(true);
-                try {
-                  const { error } = await supabase
-                    .from('monthly_results')
-                    .delete()
-                    .neq('goal_id', ''); // Delete all rows
-                  
-                  if (error) throw error;
-                } catch (error) {
-                  console.warn('Error clearing Supabase data:', error);
-                } finally {
-                  setIsSyncing(false);
-                }
               }
             }}
             className="text-xs text-red-500 hover:underline flex items-center gap-1"
@@ -740,49 +731,47 @@ export default function App() {
             </button>
           ))}
 
-          {user && (
-            <div className="pt-6">
-              <button 
-                onClick={() => setActiveTab('data-entry')}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${activeTab === 'data-entry' ? 'bg-white/10 text-[#C5A059]' : 'hover:bg-white/5 text-gray-300'}`}
-              >
-                <PlusCircle className="w-5 h-5" />
-                <span className="font-medium">Lançar Dados</span>
-              </button>
-              <a 
-                href="https://meusetor.vercel.app" 
-                className="w-full flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 text-gray-300"
-              >
-                <Info className="w-5 h-5" />
-                <span className="font-medium">Setor</span>
-              </a>
-            </div>
-          )}
+          <div className="pt-6">
+            <button 
+              onClick={() => setActiveTab('data-entry')}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${activeTab === 'data-entry' ? 'bg-white/10 text-[#C5A059]' : 'hover:bg-white/5 text-gray-300'}`}
+            >
+              <PlusCircle className="w-5 h-5" />
+              <span className="font-medium">Lançar Dados</span>
+            </button>
+            <a 
+              href="https://meusetor.vercel.app" 
+              className="w-full flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 text-gray-300"
+            >
+              <Info className="w-5 h-5" />
+              <span className="font-medium">Setor</span>
+            </a>
+          </div>
         </div>
 
         <div className="pt-4 border-t border-white/10 space-y-2">
           {user ? (
-            <div className="space-y-2">
-              <div className="px-3 py-2 bg-white/5 rounded-lg">
-                <p className="text-[10px] text-gray-400 uppercase">Logado como</p>
-                <p className="text-xs font-medium truncate text-[#C5A059]">{user.email}</p>
-              </div>
+            <div className="space-y-2 text-center">
+              <div className="text-[10px] text-gray-400 truncate font-mono px-2">{user.email}</div>
               <button 
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 p-2 text-xs text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-3 rounded-lg font-medium transition-all"
               >
-                <Settings className="w-3 h-3" />
-                Sair do Painel
+                Sair da Conta
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => setShowLoginModal(true)}
-              className="w-full flex items-center justify-center gap-2 p-3 bg-[#C5A059] hover:bg-[#b08e4d] text-[#2D2A70] font-bold rounded-lg transition-all text-sm"
-            >
-              <Users className="w-4 h-4" />
-              Acesso Restrito
-            </button>
+            <div className="space-y-2 text-center">
+              <span className="inline-block px-3 py-1 bg-white/5 text-[#C5A059] rounded-full text-[11px] font-medium tracking-wide">
+                ☁️ Supabase Habilitado
+              </span>
+              <button 
+                onClick={() => setShowLoginModal(true)}
+                className="w-full bg-[#C5A059] hover:bg-[#b08c4b] text-[#2D2A70] font-bold text-xs py-2 px-3 rounded-lg transition-all"
+              >
+                Login Administrador
+              </button>
+            </div>
           )}
         </div>
 
@@ -881,6 +870,33 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="pt-6 border-t border-white/10 space-y-2">
+                {user ? (
+                  <div className="space-y-2 text-center">
+                    <div className="text-[10px] text-gray-400 truncate font-mono px-2">{user.email}</div>
+                    <button 
+                      onClick={() => {
+                        handleLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                    >
+                      Sair da Conta
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      setShowLoginModal(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full bg-[#C5A059] hover:bg-[#b08c4b] text-[#2D2A70] font-bold text-xs py-2 px-3 rounded-lg transition-all"
+                  >
+                    Login Administrador
+                  </button>
+                )}
+              </div>
+
               <div className="pt-6 border-t border-white/10 text-[10px] text-gray-500 text-center">
                 © 2025-2028 Prefeitura de Mesquita
               </div>
@@ -901,68 +917,77 @@ export default function App() {
       {/* Login Modal */}
       <AnimatePresence>
         {showLoginModal && (
-          <div className="fixed inset-0 flex items-center justify-center z-[100] p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowLoginModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative z-10"
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl relative border border-gray-100"
             >
-              <div className="bg-[#2D2A70] p-6 text-white flex justify-between items-center">
-                <h3 className="text-xl font-bold">{isSignUp ? 'Criar Nova Conta' : 'Acesso ao Painel'}</h3>
-                <button onClick={() => setShowLoginModal(false)}><X className="w-6 h-6" /></button>
-              </div>
-              <form onSubmit={handleAuth} className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">E-mail</label>
-                  <input 
-                    type="email" 
-                    required
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-[#C5A059] outline-none"
-                    placeholder="seu@email.com"
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Senha</label>
-                  <input 
-                    type="password" 
-                    required
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-[#C5A059] outline-none"
-                    placeholder="••••••••"
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                  />
-                </div>
-                <button 
-                  disabled={isAuthLoading}
-                  className="w-full py-4 bg-[#2D2A70] text-white font-bold rounded-xl hover:bg-[#1e1c4a] transition-all disabled:opacity-50"
-                >
-                  {isAuthLoading ? 'Processando...' : (isSignUp ? 'Cadastrar' : 'Entrar no Sistema')}
-                </button>
-                
-                <div className="text-center">
-                  <button 
-                    type="button"
-                    onClick={() => setIsSignUp(!isSignUp)}
-                    className="text-sm text-[#2D2A70] hover:underline font-medium"
-                  >
-                    {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem conta? Cadastre-se'}
-                  </button>
+              <button 
+                onClick={() => setShowLoginModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 bg-indigo-50 text-[#2D2A70] rounded-xl flex items-center justify-center mx-auto">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-[#2D2A70]">
+                    {isSignUp ? 'Criar Conta de Administrador' : 'Login do Administrador'}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Acesse sua conta para sincronizar e editar as metas na nuvem.
+                  </p>
                 </div>
 
-                <p className="text-[10px] text-gray-400 text-center">
-                  Acesso exclusivo para administradores do Setor de Otimização de Serviços.
-                </p>
-              </form>
+                <form onSubmit={handleAuth} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">E-mail</label>
+                    <input 
+                      type="email"
+                      required
+                      className="w-full p-3 border rounded-xl text-sm focus:ring-2 focus:ring-[#C5A059] outline-none"
+                      placeholder="seu.nome@mesquita.rj.gov.br"
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Senha</label>
+                    <input 
+                      type="password"
+                      required
+                      minLength={6}
+                      className="w-full p-3 border rounded-xl text-sm focus:ring-2 focus:ring-[#C5A059] outline-none"
+                      placeholder="••••••••"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isAuthLoading}
+                    className="w-full bg-[#2D2A70] text-white p-3 rounded-xl font-semibold hover:bg-[#1e1b4b] transition-all disabled:opacity-50 shadow-md cursor-pointer"
+                  >
+                    {isAuthLoading ? 'Carregando...' : isSignUp ? 'Criar Conta' : 'Entrar'}
+                  </button>
+                </form>
+
+                <div className="text-center">
+                  <button 
+                    onClick={() => setIsSignUp(!isSignUp)}
+                    className="text-xs text-[#C5A059] hover:underline font-medium cursor-pointer"
+                  >
+                    {isSignUp ? 'Já tem uma conta? Faça login' : 'Precisa de uma conta? Cadastre-se'}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

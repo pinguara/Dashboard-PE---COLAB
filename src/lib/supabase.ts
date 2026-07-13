@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // User provided credentials as fallbacks
-const FALLBACK_URL = 'https://hpqzuuortmrfkjrhlxuh.supabase.co';
-const FALLBACK_KEY = 'sb_publishable_FwJc0L57ABtJ9EFNEx4SBw_SpTOa1i-';
+const FALLBACK_URL = 'https://sqboccgjrfzltvkqpkih.supabase.co/rest/v1/';
+const FALLBACK_KEY = 'sb_publishable_6cDB4onIOffZPnZFHii8ww_aajR2_-S';
 
 const getEnvVar = (value: any): string => {
   if (value === undefined || value === null) return '';
@@ -39,7 +39,7 @@ const isValidUrl = (url: string): boolean => {
 };
 
 // Flag to check if credentials are placeholders or fully customized
-const isPlaceholderKey = resolvedKey.startsWith('sb_publishable_') && resolvedKey.includes('6cDB4onIOffZPnZFHii8ww_aajR2_');
+const isPlaceholderKey = resolvedKey === 'YOUR_ANON_KEY' || resolvedKey === 'sb_publishable_YOUR_KEY' || resolvedKey === '';
 const isKeyInvalidUrl = resolvedKey.startsWith('https://') || resolvedKey.includes('.supabase.co');
 const isUsingFallback = !envUrl || !envKey;
 

@@ -22,7 +22,16 @@ import {
   Home,
   LayoutDashboard,
   Menu,
-  X
+  X,
+  History,
+  Calendar,
+  Search,
+  Filter,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  Sparkles
 } from 'lucide-react';
 import { categories } from './data';
 import { Category, MonthlyResult } from './types';
@@ -84,6 +93,12 @@ export default function App() {
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
 
+  const [dataEntrySubTab, setDataEntrySubTab] = useState<'history' | 'current'>('history');
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyCategory, setHistoryCategory] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [selectedMonth, setSelectedMonth] = useState<number>(7);
+
   const getTargetDate = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -96,6 +111,48 @@ export default function App() {
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
+
+  const getLast6Months = (refYear: number, refMonth: number) => {
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(refYear, refMonth - 1 - i, 1);
+      const m = d.getMonth() + 1;
+      const y = d.getFullYear();
+      months.push({
+        year: y,
+        month: m,
+        name: monthNames[d.getMonth()],
+        shortName: `${monthNames[d.getMonth()].substring(0, 3)}/${y.toString().slice(-2)}`,
+        fullLabel: `${monthNames[d.getMonth()]} ${y}`
+      });
+    }
+    return months;
+  };
+
+  const getGoalHistoryStats = (goalId: string, monthsList: { year: number; month: number }[]) => {
+    const values = monthsList.map(m => {
+      const res = monthlyResults.find(r => r.goalId === goalId && r.year === m.year && r.month === m.month);
+      return res !== undefined ? res.value : null;
+    });
+
+    const filledValues = values.filter((v): v is number => v !== null);
+    const avg = filledValues.length > 0 
+      ? Number((filledValues.reduce((a, b) => a + b, 0) / filledValues.length).toFixed(1)) 
+      : 0;
+
+    let trend: 'up' | 'down' | 'neutral' | 'none' = 'none';
+    let diff = 0;
+    if (filledValues.length >= 2) {
+      const last = filledValues[filledValues.length - 1];
+      const prev = filledValues[filledValues.length - 2];
+      diff = Number((last - prev).toFixed(1));
+      if (diff > 0) trend = 'up';
+      else if (diff < 0) trend = 'down';
+      else trend = 'neutral';
+    }
+
+    return { values, filledCount: filledValues.length, avg, trend, diff };
+  };
 
   const getBaselineResults = (year: number, month: number): MonthlyResult[] => {
     const results: MonthlyResult[] = [];
@@ -237,23 +294,26 @@ export default function App() {
     setActiveTab('home');
   };
 
-  const handleAddResult = async (goalId: string, value: number) => {
+  const handleAddResult = async (
+    goalId: string, 
+    value: number, 
+    year: number = targetYear, 
+    month: number = targetMonth
+  ) => {
     const newResult: MonthlyResult = {
       goalId,
-      year: targetYear,
-      month: targetMonth,
+      year,
+      month,
       value
     };
     
     // Optimistic update
     setMonthlyResults(prev => {
-      const filtered = prev.filter(r => r.goalId !== goalId || r.year !== targetYear || r.month !== targetMonth);
-      return [...filtered, newResult];
+      const filtered = prev.filter(r => !(r.goalId === goalId && r.year === year && r.month === month));
+      const updated = [...filtered, newResult];
+      localStorage.setItem('mesquita_dashboard_results', JSON.stringify(updated));
+      return updated;
     });
-
-    // Save to localStorage
-    const updatedResults = [...monthlyResults.filter(r => r.goalId !== goalId || r.year !== targetYear || r.month !== targetMonth), newResult];
-    localStorage.setItem('mesquita_dashboard_results', JSON.stringify(updatedResults));
 
     // Sync with Supabase
     setIsSyncing(true);
@@ -262,8 +322,8 @@ export default function App() {
         .from('monthly_results')
         .upsert({
           goal_id: goalId,
-          year: targetYear,
-          month: targetMonth,
+          year: year,
+          month: month,
           value: value
         }, { onConflict: 'goal_id,year,month' });
 
@@ -587,114 +647,485 @@ export default function App() {
     );
   };
 
-  const renderDataEntry = () => (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="max-w-3xl mx-auto space-y-8"
-    >
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <PlusCircle className="w-8 h-8 text-[#C5A059]" />
-            <h2 className="text-2xl font-bold text-[#2D2A70] flex items-center gap-3 flex-wrap">
-              <span>Preenchimento de Dados (Mês de Referência / {targetYear})</span>
-              {isSyncing && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-indigo-50 text-indigo-600 border border-indigo-100 font-medium animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping" />
-                  Sincronizando...
-                </span>
-              )}
-            </h2>
+  const renderDataEntryHistory = () => {
+    const last6Months = getLast6Months(selectedYear, selectedMonth);
+
+    // Filter categories
+    const filteredCategories = categories.filter(cat => {
+      if (historyCategory !== 'all' && cat.id !== historyCategory) return false;
+      if (!historySearch.trim()) return true;
+
+      const query = historySearch.toLowerCase();
+      const hasMatchingGoal = cat.goals.some(g => 
+        g.meta.toLowerCase().includes(query) || 
+        g.formula.toLowerCase().includes(query) ||
+        (g.axis && g.axis.toLowerCase().includes(query))
+      );
+      return cat.title.toLowerCase().includes(query) || hasMatchingGoal;
+    });
+
+    // Calculate total stats
+    let totalGoals = 0;
+    let filledCells = 0;
+    categories.forEach(cat => {
+      cat.goals.forEach(goal => {
+        totalGoals++;
+        last6Months.forEach(m => {
+          if (monthlyResults.some(r => r.goalId === goal.id && r.year === m.year && r.month === m.month)) {
+            filledCells++;
+          }
+        });
+      });
+    });
+
+    const totalPossible = totalGoals * 6;
+    const completionPercentage = Math.round((filledCells / (totalPossible || 1)) * 100);
+
+    return (
+      <div className="space-y-6">
+        {/* Banner & Stats */}
+        <div className="bg-gradient-to-r from-[#2D2A70] to-[#1e1b4b] text-white p-6 rounded-2xl shadow-md border border-[#C5A059]/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A059]/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 text-[#C5A059] text-xs font-bold uppercase tracking-wider border border-[#C5A059]/40">
+                <History className="w-3.5 h-3.5" />
+                Histórico dos Últimos 6 Meses
+              </div>
+              <h2 className="text-2xl font-bold text-white">Registro Evolutivo dos Indicadores</h2>
+              <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
+                Consulte e atualize os lançamentos mês a mês de todos os indicadores das categorias. Altere os valores diretamente nas células para atualizar o banco de dados.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap md:flex-col items-end gap-3 shrink-0">
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2.5 rounded-xl border border-white/10">
+                <Calendar className="w-4 h-4 text-[#C5A059]" />
+                <div className="text-right">
+                  <div className="text-[10px] text-gray-300 font-semibold uppercase">Período de Análise</div>
+                  <div className="text-xs font-bold text-white font-mono">
+                    {last6Months[0].shortName} — {last6Months[5].shortName}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2.5 rounded-xl border border-white/10">
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
+                <div className="text-right">
+                  <div className="text-[10px] text-gray-300 font-semibold uppercase">Preenchimento (6M)</div>
+                  <div className="text-xs font-bold text-emerald-300 font-mono">
+                    {filledCells} / {totalPossible} ({completionPercentage}%)
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <button 
-            onClick={() => {
-              if (confirm('Deseja realmente limpar todos os dados lançados?')) {
-                setMonthlyResults([]);
-                localStorage.removeItem('mesquita_dashboard_results');
-              }
-            }}
-            className="text-xs text-red-500 hover:underline flex items-center gap-1"
-          >
-            <XCircle className="w-3 h-3" />
-            Limpar tudo
-          </button>
         </div>
 
-        <p className="text-sm text-gray-500 bg-blue-50 p-4 rounded-lg border border-blue-100">
-          Insira os resultados alcançados no mês de referência. O farol nas abas de categoria será atualizado automaticamente com base nestes valores em relação às metas de {targetYear}.
-        </p>
-        
-        <div className="space-y-12">
-          {categories.map(cat => {
-            const groupedGoals = cat.goals.reduce((acc, goal) => {
-              const axis = goal.axis || 'Geral';
-              if (!acc[axis]) acc[axis] = [];
-              acc[axis].push(goal);
-              return acc;
-            }, {} as Record<string, typeof cat.goals>);
-            
-            const axisList = Object.keys(groupedGoals);
+        {/* Filter and Search Bar */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full md:w-auto flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar meta, indicador ou fórmula..."
+                className="w-full pl-9 pr-4 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#C5A059] bg-gray-50 focus:bg-white transition-all"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+              />
+              {historySearch && (
+                <button 
+                  onClick={() => setHistorySearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-            return (
-              <div key={cat.id} className="space-y-6">
-                <h3 className="font-bold text-xl text-[#2D2A70] flex items-center gap-3 border-b pb-2">
-                  <div className="w-3 h-3 rounded-full bg-[#C5A059]" />
-                  {cat.title}
-                </h3>
-                
-                <div className="space-y-8 pl-4">
+            <div className="relative shrink-0">
+              <select
+                className="pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#C5A059] bg-gray-50 text-gray-700 font-medium appearance-none cursor-pointer"
+                value={historyCategory}
+                onChange={(e) => setHistoryCategory(e.target.value)}
+              >
+                <option value="all">Todas as Categorias ({categories.length})</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+              <Filter className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Reference Month Selector */}
+          <div className="flex items-center gap-2 shrink-0 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+            <span className="text-[11px] font-semibold text-gray-500 pl-2">Mês Final:</span>
+            <select
+              className="text-xs font-bold text-[#2D2A70] bg-white border border-gray-200 px-2 py-1 rounded-lg outline-none focus:ring-1 focus:ring-[#C5A059]"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            >
+              {monthNames.map((mName, idx) => (
+                <option key={idx + 1} value={idx + 1}>{mName}</option>
+              ))}
+            </select>
+            <select
+              className="text-xs font-bold text-[#2D2A70] bg-white border border-gray-200 px-2 py-1 rounded-lg outline-none focus:ring-1 focus:ring-[#C5A059]"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+            >
+              {[2025, 2026, 2027, 2028].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Main Matrix Table per Category */}
+        <div className="space-y-8">
+          {filteredCategories.length === 0 ? (
+            <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-300 text-center space-y-3">
+              <Info className="w-8 h-8 text-gray-400 mx-auto" />
+              <p className="text-sm font-medium text-gray-600">Nenhum indicador encontrado para a busca "{historySearch}".</p>
+              <button
+                onClick={() => { setHistorySearch(''); setHistoryCategory('all'); }}
+                className="text-xs text-[#C5A059] font-bold hover:underline cursor-pointer"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          ) : (
+            filteredCategories.map(cat => {
+              const query = historySearch.toLowerCase();
+              const categoryGoals = cat.goals.filter(g => 
+                !query || 
+                g.meta.toLowerCase().includes(query) || 
+                g.formula.toLowerCase().includes(query) ||
+                (g.axis && g.axis.toLowerCase().includes(query))
+              );
+
+              if (categoryGoals.length === 0) return null;
+
+              const groupedGoals = categoryGoals.reduce((acc, goal) => {
+                const axis = goal.axis || 'Geral';
+                if (!acc[axis]) acc[axis] = [];
+                acc[axis].push(goal);
+                return acc;
+              }, {} as Record<string, typeof cat.goals>);
+
+              const axisList = Object.keys(groupedGoals);
+
+              return (
+                <div key={cat.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden space-y-0">
+                  {/* Category Title Header */}
+                  <div className="bg-slate-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-[#C5A059]" />
+                      <h3 className="font-bold text-lg text-[#2D2A70]">{cat.title}</h3>
+                      <span className="text-xs bg-indigo-50 text-[#2D2A70] px-2.5 py-0.5 rounded-full font-bold border border-indigo-100">
+                        {categoryGoals.length} {categoryGoals.length === 1 ? 'meta' : 'metas'}
+                      </span>
+                    </div>
+                  </div>
+
                   {axisList.map(axis => (
-                    <div key={axis} className="space-y-3">
+                    <div key={axis} className="border-b border-gray-100 last:border-b-0">
                       {axis !== 'Geral' && (
-                        <h4 className="text-sm font-bold text-[#C5A059] uppercase tracking-widest flex items-center gap-2">
-                          <ChevronRight className="w-4 h-4" />
-                          {axis}
-                        </h4>
+                        <div className="bg-gray-50/70 px-6 py-2 border-b border-gray-100 flex items-center gap-2">
+                          <ChevronRight className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span className="text-xs font-bold text-[#2D2A70] tracking-wide uppercase">{axis}</span>
+                        </div>
                       )}
-                      <div className="grid grid-cols-1 gap-3">
-                        {groupedGoals[axis].map(goal => {
-                          const currentResult = monthlyResults.find(r => r.goalId === goal.id && r.year === targetYear && r.month === targetMonth);
-                          return (
-                            <div key={goal.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
-                              <div className="space-y-1 flex-1">
-                                <span className="text-sm font-medium text-gray-800">{goal.meta}</span>
-                                <div className="text-[10px] text-gray-400 uppercase tracking-wider">{goal.formula}</div>
-                              </div>
-                              <div className="flex items-center gap-4 shrink-0">
-                                <div className="text-right">
-                                  <div className="text-[10px] text-gray-400 uppercase">Meta {targetYear}</div>
-                                  <div className="text-sm font-bold text-[#2D2A70]">{goal.indicators[targetYear] || goal.indicators[2025]}</div>
-                                </div>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    placeholder="0"
-                                    className="w-24 p-2 pl-3 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#C5A059] outline-none bg-white shadow-sm"
-                                    value={currentResult?.value || ''}
-                                    onChange={(e) => {
-                                      const val = e.target.value.replace(',', '.');
-                                      if (val === '' || !isNaN(Number(val))) {
-                                        handleAddResult(goal.id, val === '' ? 0 : Number(val));
-                                      }
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
+                          <thead>
+                            <tr className="bg-gray-50/40 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                              <th className="p-3 pl-6 w-72">Meta / Indicador</th>
+                              {last6Months.map((m, idx) => (
+                                <th key={idx} className="p-3 text-center w-24">
+                                  <div className="text-[#2D2A70]">{m.shortName}</div>
+                                </th>
+                              ))}
+                              <th className="p-3 text-center w-24 text-gray-700">Meta {selectedYear}</th>
+                              <th className="p-3 text-center w-24 text-gray-700">Média (6M)</th>
+                              <th className="p-3 text-center w-20">Evolução</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 text-xs">
+                            {groupedGoals[axis].map(goal => {
+                              const stats = getGoalHistoryStats(goal.id, last6Months);
+                              const targetVal = goal.indicators[selectedYear] || goal.indicators[2025] || '-';
+
+                              return (
+                                <tr key={goal.id} className="hover:bg-blue-50/30 transition-colors">
+                                  <td className="p-3 pl-6">
+                                    <div className="font-semibold text-gray-800 leading-snug">{goal.meta}</div>
+                                    <div className="text-[10px] text-gray-400 font-mono mt-0.5 truncate max-w-xs">{goal.formula}</div>
+                                  </td>
+
+                                  {/* 6 Months editable cells */}
+                                  {last6Months.map((m, mIdx) => {
+                                    const existingResult = monthlyResults.find(r => r.goalId === goal.id && r.year === m.year && r.month === m.month);
+                                    const currentVal = existingResult !== undefined ? existingResult.value : '';
+
+                                    return (
+                                      <td key={mIdx} className="p-2 text-center">
+                                        <input
+                                          type="text"
+                                          placeholder="-"
+                                          className={`w-16 p-1.5 text-center font-mono text-xs border rounded-lg outline-none transition-all ${
+                                            currentVal !== '' 
+                                              ? 'bg-emerald-50/60 border-emerald-300 font-bold text-emerald-900 focus:ring-2 focus:ring-[#C5A059]' 
+                                              : 'bg-white border-gray-200 text-gray-400 focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/30'
+                                          }`}
+                                          value={currentVal}
+                                          onChange={(e) => {
+                                            const val = e.target.value.replace(',', '.');
+                                            if (val === '' || !isNaN(Number(val))) {
+                                              handleAddResult(goal.id, val === '' ? 0 : Number(val), m.year, m.month);
+                                            }
+                                          }}
+                                        />
+                                      </td>
+                                    );
+                                  })}
+
+                                  {/* Meta Anual */}
+                                  <td className="p-3 text-center font-bold font-mono text-gray-600 bg-gray-50/50">
+                                    {targetVal}
+                                  </td>
+
+                                  {/* Média 6M */}
+                                  <td className="p-3 text-center font-bold font-mono text-[#2D2A70]">
+                                    {stats.filledCount > 0 ? stats.avg : '-'}
+                                  </td>
+
+                                  {/* Tendência */}
+                                  <td className="p-3 text-center">
+                                    {stats.trend === 'up' && (
+                                      <span className="inline-flex items-center gap-0.5 text-emerald-600 font-bold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">
+                                        <ArrowUpRight className="w-3 h-3" />
+                                        +{stats.diff}
+                                      </span>
+                                    )}
+                                    {stats.trend === 'down' && (
+                                      <span className="inline-flex items-center gap-0.5 text-rose-600 font-bold text-[11px] bg-rose-50 px-1.5 py-0.5 rounded">
+                                        <ArrowDownRight className="w-3 h-3" />
+                                        {stats.diff}
+                                      </span>
+                                    )}
+                                    {stats.trend === 'neutral' && (
+                                      <span className="inline-flex items-center gap-0.5 text-gray-400 font-bold text-[11px] bg-gray-50 px-1.5 py-0.5 rounded">
+                                        <Minus className="w-3 h-3" />
+                                        0
+                                      </span>
+                                    )}
+                                    {stats.trend === 'none' && (
+                                      <span className="text-gray-300">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
-    </motion.div>
+    );
+  };
+
+  const renderDataEntryCurrent = () => (
+    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <PlusCircle className="w-8 h-8 text-[#C5A059]" />
+          <h2 className="text-2xl font-bold text-[#2D2A70] flex items-center gap-3 flex-wrap">
+            <span>Preenchimento de Dados (Mês de Referência / {targetYear})</span>
+          </h2>
+        </div>
+      </div>
+
+      <p className="text-sm text-gray-500 bg-blue-50 p-4 rounded-lg border border-blue-100">
+        Insira os resultados alcançados no mês de referência. O farol nas abas de categoria será atualizado automaticamente com base nestes valores em relação às metas de {targetYear}.
+      </p>
+      
+      <div className="space-y-12">
+        {categories.map(cat => {
+          const groupedGoals = cat.goals.reduce((acc, goal) => {
+            const axis = goal.axis || 'Geral';
+            if (!acc[axis]) acc[axis] = [];
+            acc[axis].push(goal);
+            return acc;
+          }, {} as Record<string, typeof cat.goals>);
+          
+          const axisList = Object.keys(groupedGoals);
+
+          return (
+            <div key={cat.id} className="space-y-6">
+              <h3 className="font-bold text-xl text-[#2D2A70] flex items-center gap-3 border-b pb-2">
+                <div className="w-3 h-3 rounded-full bg-[#C5A059]" />
+                {cat.title}
+              </h3>
+              
+              <div className="space-y-8 pl-4">
+                {axisList.map(axis => (
+                  <div key={axis} className="space-y-3">
+                    {axis !== 'Geral' && (
+                      <h4 className="text-sm font-bold text-[#C5A059] uppercase tracking-widest flex items-center gap-2">
+                        <ChevronRight className="w-4 h-4" />
+                        {axis}
+                      </h4>
+                    )}
+                    <div className="grid grid-cols-1 gap-3">
+                      {groupedGoals[axis].map(goal => {
+                        const currentResult = monthlyResults.find(r => r.goalId === goal.id && r.year === targetYear && r.month === targetMonth);
+                        return (
+                          <div key={goal.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+                            <div className="space-y-1 flex-1">
+                              <span className="text-sm font-medium text-gray-800">{goal.meta}</span>
+                              <div className="text-[10px] text-gray-400 uppercase tracking-wider">{goal.formula}</div>
+                            </div>
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="text-right">
+                                <div className="text-[10px] text-gray-400 uppercase">Meta {targetYear}</div>
+                                <div className="text-sm font-bold text-[#2D2A70]">{goal.indicators[targetYear] || goal.indicators[2025]}</div>
+                              </div>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  placeholder="0"
+                                  className="w-24 p-2 pl-3 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#C5A059] outline-none bg-white shadow-sm"
+                                  value={currentResult?.value !== undefined ? currentResult.value : ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value.replace(',', '.');
+                                    if (val === '' || !isNaN(Number(val))) {
+                                      handleAddResult(goal.id, val === '' ? 0 : Number(val), targetYear, targetMonth);
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
+
+  const renderDataEntry = () => {
+    const last6Months = getLast6Months(selectedYear, selectedMonth);
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`mx-auto space-y-6 ${dataEntrySubTab === 'history' ? 'max-w-7xl' : 'max-w-3xl'}`}
+      >
+        {/* Sub Navigation */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-xl border border-gray-200">
+            <button
+              onClick={() => setDataEntrySubTab('history')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                dataEntrySubTab === 'history'
+                  ? 'bg-[#2D2A70] text-[#C5A059] shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Histórico (Últimos 6 Meses)</span>
+            </button>
+            <button
+              onClick={() => setDataEntrySubTab('current')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                dataEntrySubTab === 'current'
+                  ? 'bg-[#2D2A70] text-[#C5A059] shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Lançamento do Mês Atual</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {isSyncing && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                Sincronizando...
+              </span>
+            )}
+
+            {dataEntrySubTab === 'history' && (
+              <button
+                onClick={() => {
+                  if (confirm('Deseja preencher dados de exemplo para os últimos 6 meses para visualização?')) {
+                    const sampleResults: MonthlyResult[] = [];
+                    categories.forEach(cat => {
+                      cat.goals.forEach(goal => {
+                        last6Months.forEach((m, idx) => {
+                          const targetVal = goal.indicators[m.year] || goal.indicators[2025] || 0;
+                          const cleanStr = String(targetVal).replace(/[^\d.-]/g, '');
+                          const numVal = parseFloat(cleanStr) || 10;
+                          const variance = (idx - 2) * (numVal * 0.02);
+                          const val = Number((numVal + variance).toFixed(1));
+                          sampleResults.push({
+                            goalId: goal.id,
+                            year: m.year,
+                            month: m.month,
+                            value: val > 0 ? val : 1
+                          });
+                        });
+                      });
+                    });
+                    setMonthlyResults(sampleResults);
+                    localStorage.setItem('mesquita_dashboard_results', JSON.stringify(sampleResults));
+                  }
+                }}
+                className="text-xs text-[#2D2A70] hover:bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                Gerar Exemplo (6M)
+              </button>
+            )}
+
+            <button 
+              onClick={() => {
+                if (confirm('Deseja realmente limpar todos os dados lançados?')) {
+                  setMonthlyResults([]);
+                  localStorage.removeItem('mesquita_dashboard_results');
+                }
+              }}
+              className="text-xs text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1.5 bg-rose-50 px-3 py-2 rounded-xl border border-rose-100 transition-colors font-medium cursor-pointer"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              Limpar tudo
+            </button>
+          </div>
+        </div>
+
+        {dataEntrySubTab === 'history' ? renderDataEntryHistory() : renderDataEntryCurrent()}
+      </motion.div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans">

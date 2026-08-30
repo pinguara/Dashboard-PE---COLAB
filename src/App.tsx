@@ -172,7 +172,7 @@ export default function App() {
 
         let mockValue = numericTarget;
         if (numericTarget === 0) {
-          mockValue = 2; 
+          mockValue = 0; 
         } else if (isPercentage) {
           if (String(targetVal).includes('≤') || String(targetVal).includes('<')) {
             mockValue = Number((numericTarget * 0.85).toFixed(1));
@@ -180,7 +180,7 @@ export default function App() {
             mockValue = Number((numericTarget * 1.02).toFixed(1));
           }
         } else {
-          mockValue = Math.round(numericTarget * 0.95);
+          mockValue = numericTarget <= 1 ? numericTarget : Math.round(numericTarget * 0.95);
         }
 
         results.push({
@@ -1075,14 +1075,17 @@ export default function App() {
                         last12Months.forEach((m, idx) => {
                           const targetVal = goal.indicators[m.year] || goal.indicators[2025] || 0;
                           const cleanStr = String(targetVal).replace(/[^\d.-]/g, '');
-                          const numVal = parseFloat(cleanStr) || 10;
-                          const variance = (idx - 5) * (numVal * 0.02);
-                          const val = Number((numVal + variance).toFixed(1));
+                          const numVal = parseFloat(cleanStr) || 0;
+                          let val = numVal;
+                          if (numVal > 1) {
+                            const variance = (idx - 5) * (numVal * 0.02);
+                            val = Number((numVal + variance).toFixed(1));
+                          }
                           sampleResults.push({
                             goalId: goal.id,
                             year: m.year,
                             month: m.month,
-                            value: val > 0 ? val : 1
+                            value: val >= 0 ? val : 0
                           });
                         });
                       });

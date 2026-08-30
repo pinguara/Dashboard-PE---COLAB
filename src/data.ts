@@ -424,24 +424,28 @@ export const categories: Category[] = [
         id: 'car-1',
         meta: 'Aumentar a cobertura de serviços mapeados',
         formula: 'número de cartas de serviços criadas e aprovadas',
+        axis: 'Cartas de Serviço',
         indicators: { 2025: 200, 2026: 200, 2027: 200, 2028: 200 }
       },
       {
         id: 'car-2',
         meta: 'Implementar uma aba no site da Prefeitura de Mesquita',
         formula: 'Status de implementação',
+        axis: 'Cartas de Serviço',
         indicators: { 2025: 1, 2026: 1, 2027: 0, 2028: 0 }
       },
       {
         id: 'car-3',
-        meta: 'Implementar as cartas de serviço no site da Transparência da Prefeitura de Mesquita',
+        meta: 'Implementar as cartas de serviço no site da Transparência',
         formula: 'Status de implementação',
+        axis: 'Cartas de Serviço',
         indicators: { 2025: 1, 2026: 1, 2027: 0, 2028: 0 }
       },
       {
         id: 'car-4',
         meta: 'Atualizar as cartas de serviços',
         formula: '(Número de cartas atualizadas / número de cartas totais) x 100',
+        axis: 'Cartas de Serviço',
         indicators: { 2025: '20%', 2026: '50%', 2027: '50%', 2028: '50%' }
       }
     ]

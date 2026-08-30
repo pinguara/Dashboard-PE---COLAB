@@ -149,6 +149,13 @@ export const categories: Category[] = [
         indicators: { 2025: '35%', 2026: '30%', 2027: '25%', 2028: '20%' }
       },
       {
+        id: 'dem-13',
+        meta: 'Diminuir Tx de demandas há mais de 6 meses - Saúde',
+        formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',
+        axis: 'Eixo 4.3 - Metas de Demandas Antigas - Saúde',
+        indicators: { 2025: '25%', 2026: '20%', 2027: '17%', 2028: '14%' }
+      },
+      {
         id: 'dem-13.1',
         meta: 'Diminuir Tx de demandas há mais de 6 meses - Ouvidoria da Saúde',
         formula: '(Número de demandas em aberto com mais de 6 meses/ número de demandas em aberto)x100',

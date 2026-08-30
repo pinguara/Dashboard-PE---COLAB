@@ -97,7 +97,7 @@ export default function App() {
   const [historySearch, setHistorySearch] = useState('');
   const [historyCategory, setHistoryCategory] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(7);
+  const [selectedStartMonth, setSelectedStartMonth] = useState<number>(1);
 
   const getTargetDate = () => {
     const now = new Date();
@@ -112,18 +112,18 @@ export default function App() {
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  const getLast6Months = (refYear: number, refMonth: number) => {
+  const getLast12Months = (refYear: number, startMonth: number) => {
     const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(refYear, refMonth - 1 - i, 1);
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(refYear, startMonth - 1 + i, 1);
       const m = d.getMonth() + 1;
       const y = d.getFullYear();
       months.push({
         year: y,
         month: m,
         name: monthNames[d.getMonth()],
-        shortName: `${monthNames[d.getMonth()].substring(0, 3)}/${y.toString().slice(-2)}`,
-        fullLabel: `${monthNames[d.getMonth()]} ${y}`
+        shortName: monthNames[d.getMonth()].substring(0, 3),
+        fullLabel: monthNames[d.getMonth()]
       });
     }
     return months;
@@ -648,7 +648,7 @@ export default function App() {
   };
 
   const renderDataEntryHistory = () => {
-    const last6Months = getLast6Months(selectedYear, selectedMonth);
+    const last12Months = getLast12Months(selectedYear, selectedStartMonth);
 
     // Filter categories
     const filteredCategories = categories.filter(cat => {
@@ -670,7 +670,7 @@ export default function App() {
     categories.forEach(cat => {
       cat.goals.forEach(goal => {
         totalGoals++;
-        last6Months.forEach(m => {
+        last12Months.forEach(m => {
           if (monthlyResults.some(r => r.goalId === goal.id && r.year === m.year && r.month === m.month)) {
             filledCells++;
           }
@@ -678,7 +678,7 @@ export default function App() {
       });
     });
 
-    const totalPossible = totalGoals * 6;
+    const totalPossible = totalGoals * 12;
     const completionPercentage = Math.round((filledCells / (totalPossible || 1)) * 100);
 
     return (
@@ -691,7 +691,7 @@ export default function App() {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 text-[#C5A059] text-xs font-bold uppercase tracking-wider border border-[#C5A059]/40">
                 <History className="w-3.5 h-3.5" />
-                Histórico dos Últimos 6 Meses
+                Histórico dos Últimos 12 Meses
               </div>
               <h2 className="text-2xl font-bold text-white">Registro Evolutivo dos Indicadores</h2>
               <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
@@ -705,7 +705,7 @@ export default function App() {
                 <div className="text-right">
                   <div className="text-[10px] text-gray-300 font-semibold uppercase">Período de Análise</div>
                   <div className="text-xs font-bold text-white font-mono">
-                    {last6Months[0].shortName} — {last6Months[5].shortName}
+                    {last12Months[0].name} — {last12Months[11].name}
                   </div>
                 </div>
               </div>
@@ -713,7 +713,7 @@ export default function App() {
               <div className="flex items-center gap-2 bg-white/10 px-4 py-2.5 rounded-xl border border-white/10">
                 <BarChart3 className="w-4 h-4 text-emerald-400" />
                 <div className="text-right">
-                  <div className="text-[10px] text-gray-300 font-semibold uppercase">Preenchimento (6M)</div>
+                  <div className="text-[10px] text-gray-300 font-semibold uppercase">Preenchimento (12M)</div>
                   <div className="text-xs font-bold text-emerald-300 font-mono">
                     {filledCells} / {totalPossible} ({completionPercentage}%)
                   </div>
@@ -762,23 +762,14 @@ export default function App() {
 
           {/* Reference Month Selector */}
           <div className="flex items-center gap-2 shrink-0 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
-            <span className="text-[11px] font-semibold text-gray-500 pl-2">Mês Final:</span>
+            <span className="text-[11px] font-semibold text-gray-500 pl-2">Mês Inicial:</span>
             <select
-              className="text-xs font-bold text-[#2D2A70] bg-white border border-gray-200 px-2 py-1 rounded-lg outline-none focus:ring-1 focus:ring-[#C5A059]"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="text-xs font-bold text-[#2D2A70] bg-white border border-gray-200 px-3 py-1 rounded-lg outline-none focus:ring-1 focus:ring-[#C5A059]"
+              value={selectedStartMonth}
+              onChange={(e) => setSelectedStartMonth(Number(e.target.value))}
             >
               {monthNames.map((mName, idx) => (
                 <option key={idx + 1} value={idx + 1}>{mName}</option>
-              ))}
-            </select>
-            <select
-              className="text-xs font-bold text-[#2D2A70] bg-white border border-gray-200 px-2 py-1 rounded-lg outline-none focus:ring-1 focus:ring-[#C5A059]"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-            >
-              {[2025, 2026, 2027, 2028].map(y => (
-                <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </div>
@@ -841,23 +832,23 @@ export default function App() {
                       )}
 
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[800px]">
+                        <table className="w-full text-left border-collapse min-w-[1100px]">
                           <thead>
                             <tr className="bg-gray-50/40 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                              <th className="p-3 pl-6 w-72">Meta / Indicador</th>
-                              {last6Months.map((m, idx) => (
-                                <th key={idx} className="p-3 text-center w-24">
+                              <th className="p-3 pl-6 w-64">Meta / Indicador</th>
+                              {last12Months.map((m, idx) => (
+                                <th key={idx} className="p-2 text-center w-20">
                                   <div className="text-[#2D2A70]">{m.shortName}</div>
                                 </th>
                               ))}
-                              <th className="p-3 text-center w-24 text-gray-700">Meta {selectedYear}</th>
-                              <th className="p-3 text-center w-24 text-gray-700">Média (6M)</th>
+                              <th className="p-3 text-center w-24 text-gray-700">Meta Anual</th>
+                              <th className="p-3 text-center w-24 text-gray-700">Média (12M)</th>
                               <th className="p-3 text-center w-20">Evolução</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100 text-xs">
                             {groupedGoals[axis].map(goal => {
-                              const stats = getGoalHistoryStats(goal.id, last6Months);
+                              const stats = getGoalHistoryStats(goal.id, last12Months);
                               const targetVal = goal.indicators[selectedYear] || goal.indicators[2025] || '-';
 
                               return (
@@ -867,17 +858,17 @@ export default function App() {
                                     <div className="text-[10px] text-gray-400 font-mono mt-0.5 truncate max-w-xs">{goal.formula}</div>
                                   </td>
 
-                                  {/* 6 Months editable cells */}
-                                  {last6Months.map((m, mIdx) => {
+                                  {/* 12 Months editable cells */}
+                                  {last12Months.map((m, mIdx) => {
                                     const existingResult = monthlyResults.find(r => r.goalId === goal.id && r.year === m.year && r.month === m.month);
                                     const currentVal = existingResult !== undefined ? existingResult.value : '';
 
                                     return (
-                                      <td key={mIdx} className="p-2 text-center">
+                                      <td key={mIdx} className="p-1.5 text-center">
                                         <input
                                           type="text"
                                           placeholder="-"
-                                          className={`w-16 p-1.5 text-center font-mono text-xs border rounded-lg outline-none transition-all ${
+                                          className={`w-14 p-1 text-center font-mono text-xs border rounded-lg outline-none transition-all ${
                                             currentVal !== '' 
                                               ? 'bg-emerald-50/60 border-emerald-300 font-bold text-emerald-900 focus:ring-2 focus:ring-[#C5A059]' 
                                               : 'bg-white border-gray-200 text-gray-400 focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/30'
@@ -899,7 +890,7 @@ export default function App() {
                                     {targetVal}
                                   </td>
 
-                                  {/* Média 6M */}
+                                  {/* Média 12M */}
                                   <td className="p-3 text-center font-bold font-mono text-[#2D2A70]">
                                     {stats.filledCount > 0 ? stats.avg : '-'}
                                   </td>
@@ -1031,7 +1022,7 @@ export default function App() {
   );
 
   const renderDataEntry = () => {
-    const last6Months = getLast6Months(selectedYear, selectedMonth);
+    const last12Months = getLast12Months(selectedYear, selectedStartMonth);
 
     return (
       <motion.div 
@@ -1051,7 +1042,7 @@ export default function App() {
               }`}
             >
               <History className="w-4 h-4" />
-              <span>Histórico (Últimos 6 Meses)</span>
+              <span>Histórico (Últimos 12 Meses)</span>
             </button>
             <button
               onClick={() => setDataEntrySubTab('current')}
@@ -1077,15 +1068,15 @@ export default function App() {
             {dataEntrySubTab === 'history' && (
               <button
                 onClick={() => {
-                  if (confirm('Deseja preencher dados de exemplo para os últimos 6 meses para visualização?')) {
+                  if (confirm('Deseja preencher dados de exemplo para os últimos 12 meses para visualização?')) {
                     const sampleResults: MonthlyResult[] = [];
                     categories.forEach(cat => {
                       cat.goals.forEach(goal => {
-                        last6Months.forEach((m, idx) => {
+                        last12Months.forEach((m, idx) => {
                           const targetVal = goal.indicators[m.year] || goal.indicators[2025] || 0;
                           const cleanStr = String(targetVal).replace(/[^\d.-]/g, '');
                           const numVal = parseFloat(cleanStr) || 10;
-                          const variance = (idx - 2) * (numVal * 0.02);
+                          const variance = (idx - 5) * (numVal * 0.02);
                           const val = Number((numVal + variance).toFixed(1));
                           sampleResults.push({
                             goalId: goal.id,
@@ -1103,7 +1094,7 @@ export default function App() {
                 className="text-xs text-[#2D2A70] hover:bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-                Gerar Exemplo (6M)
+                Gerar Exemplo (12M)
               </button>
             )}
 

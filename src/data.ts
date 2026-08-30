@@ -430,13 +430,13 @@ export const categories: Category[] = [
         id: 'car-2',
         meta: 'Implementar uma aba no site da Prefeitura de Mesquita',
         formula: 'Status de implementação',
-        indicators: { 2025: 1, 2026: 0, 2027: 0, 2028: 0 }
+        indicators: { 2025: 1, 2026: 1, 2027: 0, 2028: 0 }
       },
       {
         id: 'car-3',
-        meta: 'Implementar as cartas de serviço no site da Transparência',
+        meta: 'Implementar as cartas de serviço no site da Transparência da Prefeitura de Mesquita',
         formula: 'Status de implementação',
-        indicators: { 2025: 1, 2026: 0, 2027: 0, 2028: 0 }
+        indicators: { 2025: 1, 2026: 1, 2027: 0, 2028: 0 }
       },
       {
         id: 'car-4',
